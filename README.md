@@ -24,7 +24,7 @@ Use of Versions:
 Check the [Brevo dev section](https://developers.brevo.com/docs/batch-send-transactional-emails) for more information about Message versions
 
 ```
-$email->version([
+$email->versions([
     [
         'to' => [
             [
