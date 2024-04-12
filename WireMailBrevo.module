@@ -1,0 +1,956 @@
+<?php
+
+declare(strict_types=1);
+
+namespace ProcessWire;
+
+/**
+ * A WireMail module for ProcessWire CMF/CMS
+ * =========================================
+ *
+ * Example Usage
+ * -------------
+ *
+ * $email = $mail->new();
+ * $email->to = 'recipient@somedomain.com';
+ * $email->subject = 'Test #1';
+ * $email->body = 'An example email';
+ * $email->send();
+ *
+ */
+
+
+class WireMailBrevo extends WireMail implements Module, ConfigurableModule
+{
+    const MYCLASS = 'WireMailBrevo';
+    const MIN_PHP = '7.2.0';
+
+
+    public $email = null;
+
+    static $post_client   = null;
+    static $get_client    = null;
+    static $status_client = null;
+    static $est_date      = null;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $defaults = self::getDefaultConfig();
+        $config   = wire('modules')->getModuleConfigData($this);
+        $merged   = array_merge($defaults, $config);
+        foreach ($merged as $key => $value) {
+            /* $this->set($k, $v); */
+            $this->$key = $value;
+        }
+
+        $blank = self::blankEmail();
+        $mail  = $this->mail;
+        $merged = array_merge($blank, $mail);
+        $this->mail = $merged;
+    }
+
+    public function ___install()
+    {
+        if (version_compare(phpversion(), self::MIN_PHP, '<')) {
+            throw new WireException(self::MYCLASS . " requires PHP >= " . self::MIN_PHP . " to work.");
+        }
+    }
+
+    /**
+     * Quick link to the edit page for the module.
+     */
+    public function getModuleConfigUrl(): string
+    {
+        return $this->config->urls->admin . "module/edit?name=" . self::MYCLASS;
+    }
+
+    public static function getDefaultConfig()
+    {
+        return [
+            'api_key'     => '',
+            'sender_email' => '',
+            'sender_name' => '',
+
+        ];
+    }
+
+    public function init()
+    {
+        $this->email = new WireMailBrevo();
+    }
+
+    protected static function blankEmail(): array
+    {
+        $blank = [
+            'to'          => [],
+            'toName'      => [],
+            'from'        => '',
+            'fromName'    => '',
+            'replyTo'     => '',
+            'replyToName' => '',
+            'subject'     => '',
+            'body'        => '',
+            'bodyHTML'    => '',
+            'cc'         => [],
+            'bcc'        => [],
+            'tags'        => [],
+            'template'    => '',
+            'params'      => [],
+            'attachments' => [],
+            'versions' => [],
+
+        ];
+        return $blank;
+    }
+
+    /**
+     * Set tags for the email.
+     *
+     * @param array $value An array of tags to be associated with the email.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function tags(array $value = [])
+    {
+        $this->mail['tags'] = $this->sanitizer->array($value);
+        return $this;
+    }
+
+    /**
+     * Set tags for the email.
+     *
+     * @param array $value An array of tags to be associated with the email.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function versions(array $value = [])
+    {
+        //TODO: sanitize $value
+        $this->mail['versions'] = $value;
+        return $this;
+    }
+
+    /**
+     * Set the template ID for the email.
+     *
+     * @param int $value The template ID to be used for the email.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function template(int $value)
+    {
+        $this->mail['templateId'] = $this->sanitizer->int($value);
+        return $this;
+    }
+
+    /**
+     * Set additional parameters for the email.
+     *
+     * @param array $value An array of additional parameters to be included in the email.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function params(array $value = [])
+    {
+        $this->mail['params'] = $value;
+        return $this;
+    }
+
+    /**
+     * Set attachments for the email.
+     *
+     * @param mixed $value Either an array of file paths or a comma-separated string of file paths.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function attachments($value)
+    {
+        if (!is_array($value)) {
+            $value = explode(',', $value);
+        }
+        $this->mail['attachments'] = $value;
+        return $this;
+    }
+
+    /**
+     * Initialize HTTP clients for POST and GET requests.
+     * 
+     * This function initializes HTTP clients with the provided token
+     * for making POST and GET requests. It sets appropriate headers
+     * for JSON content and a custom X-Mailer header for the POST client.
+     *
+     * @param string $token The authentication token for making requests.
+     * @return void
+     */
+    protected static function initClients($token)
+    {
+        // Initialize the POST client with specified headers
+        self::$post_client = self::createClient($token, [
+            'Content-Type' => 'application/json',  // Set Content-Type header to JSON
+            'Accept' => 'application/json',         // Set Accept header to JSON
+            'X-Mailer' => 'ProcessWire/WireMailBrevo'  // Set custom X-Mailer header
+        ]);
+
+        // Initialize the GET client with Accept header set to JSON
+        self::$get_client = self::createClient($token, [
+            'Accept' => 'application/json'  // Set Accept header to JSON
+        ]);
+    }
+
+
+    /**
+     * Create an HTTP client with specified headers.
+     * 
+     * This function creates an HTTP client object and sets common headers,
+     * including the API key provided as a token parameter, and any additional
+     * headers specified in the $headers array.
+     *
+     * @param string $token The API key or token for authentication.
+     * @param array $headers Additional headers to be set on the client.
+     * @return WireHttp An instance of the HTTP client.
+     * @throws \Exception If the client could not be created.
+     */
+    protected static function createClient($token, $headers = [])
+    {
+        // Create a new instance of WireHttp
+        $client = new WireHttp();
+
+        // Check if the client was successfully created
+        if (!$client) {
+            throw new \Exception("Could not create a client.");
+        }
+
+        // Set the API key header
+        $client->setHeader('api-key', $token);
+
+        // Set additional headers from the $headers array
+        foreach ($headers as $key => $value) {
+            $client->setHeader($key, $value);
+        }
+
+        // Return the created client
+        return $client;
+    }
+
+
+    public function getServerSendLogs(string $tag = '', $limit = 50, $offset = 0)
+    {
+        $token = $this->api_key;
+        self::initClients($token);
+
+        $url = "https://api.brevo.com/v3/smtp/statistics/events";
+        $qs = [];
+
+        if (!empty($tag)) {
+            $tag = urlencode($tag);
+            $qs[] = "tags=$tag";
+        }
+
+        if (!empty($event)) {
+            $tag = urlencode($event);
+            $qs[] = "event=$event";
+        }
+
+        if ($limit) {
+            $qs[] = "limit=$limit";
+        }
+        if ($offset) {
+            $qs[] = "offset=$offset";
+        }
+
+        $qs = implode('&', $qs);
+        if (!empty($qs)) {
+            $url .= "?$qs";
+        }
+
+        $result = json_decode(self::$get_client->get($url));
+
+        return $result;
+    }
+
+
+
+    public function getServerSendStats(string $tag = '', $days = 7)
+    {
+        $token = $this->api_key;
+        self::initClients($token);
+
+        $url = "https://api.brevo.com/v3/smtp/statistics/aggregatedReport";
+        $qs = [];
+        if (!empty($tag)) {
+            $tag = urlencode($tag);
+            $qs[] = "tag=$tag";
+        }
+
+        if ($days) {
+            $qs[] = "days=$days";
+        }
+
+
+        $qs = implode('&', $qs);
+        if (!empty($qs)) {
+            $url .= "?$qs";
+        }
+
+        $result = json_decode(self::$get_client->get($url));
+
+        return $result;
+    }
+
+
+
+    public function ___send($debug = false)
+    {
+        $email = $this->mail;
+        return $this->sendEmail($email, $debug);
+    }
+
+
+    /**
+     * Stringify Email And Name Array.
+     * 
+     * This function takes an array of email addresses and names, filters out invalid email addresses,
+     * and returns an array where each entry contains an email address and an optional name.
+     *
+     * @param array $addresses An array of email addresses and names.
+     * @return array An array of email address/name entries.
+     */
+    public function stringifyEmailAndNameArray(array $addresses)
+    {
+        $list = []; // Initialize an empty array to store valid email/name entries
+        foreach ($addresses as $email => $name) {
+            // Validate the email address
+            $email = filter_var($email, FILTER_VALIDATE_EMAIL);
+            if (!$email) continue; // Skip invalid email addresses
+
+            // Prepare an entry for the valid email address
+            $entry = ['email' => $email];
+
+            // Add name to the entry if it's not empty and different from the email address
+            if (!empty($name) && $name != $email) {
+                $entry['name'] = $name;
+            }
+
+            // Add the entry to the list
+            $list[] = $entry;
+        }
+        return $list; // Return the list of email/name entries
+    }
+
+
+
+    /**
+     * Set the reply-to email address and optional name for the email.
+     *
+     * This method sets the reply-to email address and optional name for the current email instance.
+     * It allows specifying both the email address and an optional name for the reply-to header.
+     *
+     * @param string $email The reply-to email address.
+     * @param string|null $name (Optional) The name associated with the reply-to email address.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function replyTo($email, $name = null)
+    {
+        return parent::replyTo($email, $name);
+    }
+
+    /**
+     * Set the CC (Carbon Copy) recipients for the email.
+     *
+     * This method sets the CC recipients for the current email instance.
+     * It allows specifying multiple email addresses with optional names.
+     *
+     * @param string|array|null $email (Optional) The CC recipient email address or an array of email addresses.
+     * @param string|null $name (Optional) The name associated with the CC recipient email address.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function cc($email = null, $name = null)
+    {
+        return $this->setEmail('cc', $email, $name);
+    }
+
+    /**
+     * Set the BCC (Blind Carbon Copy) recipients for the email.
+     *
+     * This method sets the BCC recipients for the current email instance.
+     * It allows specifying multiple email addresses with optional names.
+     *
+     * @param string|array|null $email (Optional) The BCC recipient email address or an array of email addresses.
+     * @param string|null $name (Optional) The name associated with the BCC recipient email address.
+     * @return $this Returns the instance of WireMailBrevo for method chaining.
+     */
+    public function bcc($email = null, $name = null)
+    {
+        return $this->setEmail('bcc', $email, $name);
+    }
+
+
+    /**
+     * Set Email.
+     * 
+     * This function sets email addresses and names for a specific type (e.g., 'to', 'cc', 'bcc').
+     * If $email is null, existing values for the specified type are cleared.
+     * If $email is an array or a comma-separated string, it parses each entry and sets email addresses
+     * with optional names.
+     *
+     * @param string $type The type of email ('to', 'cc', 'bcc').
+     * @param mixed $email Email address(es) to set. Can be null, a string, or an array.
+     * @param string|null $name Optional name associated with the email address(es).
+     * @return $this The instance of the class for method chaining.
+     */
+    protected function setEmail($type, $email = null, $name = null)
+    {
+
+        if (is_null($email)) {
+            // Clear existing values
+            $this->mail[$type] = [];
+            $this->mail["{$type}Name"] = [];
+            return $this;
+        }
+
+        if (empty($email)) return $this;
+
+        $list = [];
+        $emails = is_array($email) ? $email : explode(',', $email);
+
+        foreach ($emails as $key => $value) {
+            $typeName = '';
+            if (is_string($key)) {
+                // Associative array
+                // Email provided as $key, and $typeName as value
+                $typeEmail = $key;
+                $typeName = $value;
+            } else if (strpos($value, '<') !== false && strpos($value, '>') !== false) {
+                // Email provided as: 'User Name <user@example.com>'
+                list($typeEmail, $typeName) = $this->extractEmailAndName($value);
+            } else {
+                // Just an email address, possibly with name as a function argument
+                $typeEmail = $value;
+            }
+
+            if (empty($typeName)) $typeName = $name; // Use function argument if not overwritten
+            $typeEmail = wire()->sanitizer->email($typeEmail);
+            $entry = ['email' => $typeEmail];
+            if (!empty($typeName) && $typeName != $typeEmail) {
+                $entry['name'] = $typeName;
+            }
+
+            $list[] = $entry;
+        }
+
+
+        $this->mail[$type] = $list;
+        return $this;
+    }
+
+
+
+    /**
+     * Extracts the email address and optional name from a given email string.
+     *
+     * This method is used to parse an email string that may include both an email address and a name,
+     * formatted as "Name <email@example.com>". It separates the name and email components and sanitizes them.
+     *
+     * @param string $email The input email string to be parsed.
+     * @return array An array containing the sanitized email address and optional sanitized name.
+     */
+    protected function extractEmailAndName($email)
+    {
+        $name = '';
+        $email = (string) $email;
+
+        // Check if email has separate name and email components
+        if (strpos($email, '<') !== false && strpos($email, '>') !== false) {
+            // Extract name and email using regular expression
+            if (preg_match('/^(.*?)<([^>]+)>.*$/', $email, $matches)) {
+                $name = $this->sanitizeHeaderValue($matches[1]);
+                $email = $matches[2];
+            }
+        }
+
+        // Sanitize the extracted email address
+        $email = $this->sanitizer->email($email);
+
+        return array($email, $name);
+    }
+
+
+
+    /**
+     * Retrieves the reply-to email address and optional name from the current email instance.
+     *
+     * This method fetches the reply-to email address and optional name from the email instance
+     * and returns them in an associative array. The email address is sanitized, and if a name is present,
+     * it is also sanitized before being returned in the result array.
+     *
+     * @return array|null An array containing the sanitized reply-to email address and optional sanitized name,
+     *                   or null if the reply-to email address is not valid.
+     */
+    public function getReplyTo()
+    {
+        $email = $this->mail['replyTo'];
+        $name = wire()->sanitizer->text($this->mail['replyToName']);
+
+        // Validate the email address
+        $email = filter_var($email, FILTER_VALIDATE_EMAIL);
+        if (!$email) {
+            return null;
+        }
+
+        $entry = ['email' => $email];
+
+        // Include the name in the result if present and different from the email address
+        if (!empty($name) && $name != $email) {
+            $entry['name'] = $name;
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Check Template ID.
+     * 
+     * This function sends a request to the Brevo API to check the existence of a template with the specified ID.
+     * It verifies the HTTP status code of the response to determine if the template exists.
+     *
+     * @param string $templateId The ID of the template to check.
+     * @return string|bool The template ID if it exists, or true if the template exists, false otherwise.
+     * @throws \Throwable If an error occurs during the API request or template check.
+     */
+    protected function checkTemplateID($templateId)
+    {
+        $token = $this->api_key;
+        self::initClients($token);
+
+        $url = "https://api.brevo.com/v3/smtp/templates/" . $templateId;
+
+        try {
+            // Send a GET request to the Brevo API to check the template
+            $statusCode = self::$get_client->status($url);
+
+            // Check if the request was successful (HTTP status code 200)
+            if ($statusCode === 200) {
+                // Return the template ID to indicate that it exists
+                return $templateId;
+            } else {
+                return '';
+                // Log the HTTP status code and throw an exception
+                throw new \Exception("Template $templateId does not exist.");
+            }
+        } catch (\Exception $e) {
+            $this->error('Error getting template: ' . $e->getMessage());
+        }
+    }
+
+
+
+    /**
+     * Send Email.
+     * 
+     * This function sends an email using the configured API settings.
+     * It constructs the email payload, including sender, recipients, subject, body, attachments, etc.,
+     * and sends it via the configured SMTP service.
+     *
+     * @param array $email An array containing email details such as 'to', 'cc', 'bcc', 'subject', 'body', etc.
+     * @param bool $debug (Optional) If true, the function operates in debug mode, logging additional information. Default is false.
+     * @return int|string If debug mode is enabled, returns a log message. Otherwise, returns the number of emails sent.
+     */
+    public function sendEmail(array $email, bool $debug = false)
+    {
+        $token = $this->api_key;
+        self::initClients($token);
+
+        $sender_email = $this->sender_email ?: "processwire@{$this->domain}";
+        $sender_name = $this->sender_name ?: 'ProcessWire';
+        $send_count = 0;
+        $versions = false;
+
+        if (true || $debug) {
+            // Debug mode: Log email details
+            $this->vlog($email);
+        }
+
+        if (!empty($token) && !empty($sender_email)) {
+            try {
+                // Construct email payload
+                $data = [
+                    'subject' => $email['subject'],
+                    'sender' => [
+                        'email' => $sender_email,
+                        'name' => $sender_name,
+                    ],
+                    'tags' => [$_SERVER['SERVER_NAME']],
+                ];
+
+                if (!empty($email['versions'])) {
+                    $data['messageVersions'] = $email['versions'];
+                    $versions = true;
+                } else {
+                    // Prepare recipients list
+                    $tos = array_fill_keys(array_keys($email['to']), '');
+                    $tos = array_merge($tos, $email['toName']);
+                    $to_list = $this->stringifyEmailAndNameArray($tos);
+
+                    // Set to
+                    $data['to'] = $to_list;
+
+                    // Set CC and BCC
+                    $cc = $this->mail['cc'];
+                    $bcc = $this->mail['bcc'];
+                    if (!empty($bcc)) $data['bcc'] = $bcc;
+                    if (!empty($cc))  $data['cc']  = $cc;
+                }
+
+
+                // Set email body
+                $bodyHTML = $email['bodyHTML'];
+                $body = $email['body'];
+                if (!empty($bodyHTML)) $data['htmlContent'] = $bodyHTML;
+                if (!empty($body))  $data['textContent']  = $body;
+
+                // Set Reply-To
+                $replyTo = $this->getReplyTo();
+                if (!empty($replyTo))  $data['replyTo']  = $replyTo;
+
+                // Set Params
+                if (!empty($email['params'])) {
+                    $filtered_params = [];
+                    foreach ($email['params'] as $key => $value) {
+                        $key = $this->sanitizeHeaderValue($key);
+                        $value = $this->sanitizeHeaderValue($value);
+                        $filtered_params[$key] = $value;
+                    }
+                    if (!empty($filtered_params)) {
+                        $data['params'] = $filtered_params;
+                    }
+                }
+
+                // Set Attachments
+                $attachments = [];
+                foreach ($email['attachments'] as $filename => $filelocation) {
+                    try {
+                        $content = file_get_contents($filelocation);
+                        if ($content === false) {
+                            throw new \Exception("Failed to read file: $filelocation");
+                        }
+                        if (!is_string($filename)) {
+                            $filename = basename($filelocation);
+                        }
+                        $attachments[] = [
+                            'Name' => $filename,
+                            'Content' => base64_encode($content),
+                        ];
+                    } catch (\Exception $e) {
+                        $this->error('Error reading file: ' . $e->getMessage(), true);
+                    }
+                }
+                if (!empty($attachments)) {
+                    $data['attachment'] = $attachments;
+                }
+
+
+
+                // Set Template ID
+                if (!empty($email['templateId'])) {
+                    $data['templateId'] = $this->checkTemplateID($email['templateId']);
+                }
+
+                // Send email
+                $send_result = json_decode(
+                    self::$post_client->post(
+                        'https://api.brevo.com/v3/smtp/email',
+                        json_encode($data)
+                    )
+                );
+
+                if (isset($send_result->code)) {
+                    $logmsg = $send_result->message ?? "Error sending email";
+                } else {
+                    $send_count = 1;
+                    $this->email_id = $versions ? $send_result->messageIds : $send_result->messageId;
+                    $this->mail['send_results'][] = $send_result;
+                    if (is_array($this->email_id)) {
+                        foreach ($this->email_id as $id) {
+                            $logmsg = "Email accepted with message ID: {$id}";
+                        }
+                    } else {
+                        $logmsg = "Email accepted with message ID: {$this->email_id}";
+                    }
+                }
+
+                // Log send result
+                $this->vlog($logmsg);
+            } catch (\Exception $e) {
+                $this->error('Error sending email: ' . $e->getMessage());
+            }
+        } else {
+            // Log if required settings are not set
+            $this->vlog("Required settings not set.");
+        }
+
+        if (true || $debug) {
+            // Return log message in debug mode
+            return $logmsg;
+        } else {
+            // Return number of emails sent
+            return $send_count;
+        }
+    }
+
+
+
+
+    /**
+     * Convert Variable to String.
+     * 
+     * This function converts a variable to its string representation using var_dump.
+     * It captures the output buffering to obtain the string representation.
+     *
+     * @param mixed $var The variable to convert to a string. Default is null.
+     * @return string The string representation of the variable.
+     */
+    protected function varToString($var = null)
+    {
+        ob_start(); // Start output buffering
+        var_dump($var); // Dump the variable to the output buffer
+        $string = ob_get_contents(); // Get the contents of the output buffer
+        ob_end_clean(); // Clean (erase) the output buffer and turn off output buffering
+        return $string; // Return the string representation of the variable
+    }
+
+
+
+
+    protected function vlog($msg)
+    {
+        if (!is_string($msg)) $msg = $this->varToString($msg);
+        $this->log($msg);
+    }
+
+
+
+    public function ents(string $s)
+    {
+        return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    }
+
+
+
+    public function getModuleConfigInputfields(InputfieldWrapper $fields)
+    {
+        $modules = wire()->modules;
+        $f = $modules->get('InputfieldMarkup');
+
+        $info = new \stdClass();
+
+        if (!empty($this->api_key)) {
+            $n_days  = 30;
+            $tag     = $_SERVER['SERVER_NAME'];
+            $info    = $this->getServerSendStats($tag, $n_days);
+            $error   = !empty($info->ErrorCode);
+        } else {
+            $error = true;
+            $info->Message = $this->_('Invalid server token');
+        }
+
+        $live_active    = wire()->config->debug ? '' : $this->_('(ACTIVE)');
+        $f = $modules->get('InputfieldText');
+        $f->attr('name', 'api_key');
+        $f->attr('value', $this->api_key);
+        $f->required = true;
+        $f->icon = 'key';
+        $f->label = wirePopulateStringTags($this->_('Your Brevo API Key {status}'), ['status' => $live_active]);
+        $f->notes = $this->_('Create one from your [Brevo](https://app.brevo.com/settings/keys/api) account > hit the "Generate a new API Key" button.');
+        if (!$error) {
+            $f->collapsed = Inputfield::collapsedPopulated;
+        }
+        $fields->add($f);
+
+
+        $f = $modules->get('InputfieldMarkup');
+        if ($error) {
+            $f->label = __('Error');
+            $msg = $this->ents($info->Message);
+            $f->value = "<p>$msg</p>";
+        } else {
+            $f->label = $this->_("$n_days Day stats for transactional email activity");
+            $keys = [
+                'requests'        => 'Requests',
+                'delivered'       => 'Delivered',
+                'opens'           => 'Opened',
+                'uniqueOpens'     => 'Unique Opens',
+                'clicks'          => 'Total Clicks',
+                'softBounces'     => 'Soft Bounced',
+                'hardBounces'     => 'Hard Bounced',
+                'spamReports'     => 'Spam Complaints',
+            ];
+            $msg = '';
+            $headings = '';
+            foreach ($keys as $key => $fieldname) {
+                $value = $info->$key;
+                if (false !== strpos($key, 'Rate')) {
+                    $value = floatval($value); // Santize values from Brevo API - just in case
+                    $value = "$value%";
+                } else {
+                    $value = (int) $value;  // Sanitize value from API
+                }
+                $msg .= "<td class=''>$value</td> ";
+                $headings .= "<th>$fieldname</th>";
+            }
+            $info = var_export($info, true);
+            $f->value = "
+                <table class='AdminDataTable AdminDataList AdminDataTableResponsive'>
+                <thead><tr role=row>$headings</tr></thead>
+                <tbody><tr>
+                $msg
+                </tr></tbody>
+                </table>
+                ";
+        }
+        $fields->add($f);
+
+        // WRAPPER SENDER
+        $fieldset = $modules->get('InputfieldFieldset');
+        $fieldset->label = $this->_('Sender');
+        $fieldset->attr('name', '_sender');
+        $fieldset->collapsed = Inputfield::collapsedNo;
+        $fieldset->icon = 'address-book';
+
+        // SENDER EMAIL
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'sender_email');
+        $field->attr('value', $this->sender_email);
+        $field->label = $this->_('Sender Email Address');
+
+        $field->columnWidth = 50;
+        $field->icon = 'at';
+        $fieldset->add($field);
+
+        // SENDER NAME
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'sender_name');
+        $field->attr('value', $this->sender_name);
+        $field->label = $this->_('Sender Name');
+        $field->columnWidth = 50;
+        $field->icon = 'user';
+        $fieldset->add($field);
+
+        if ($error) {
+            $f->collapsed = Inputfield::collapsedPopulated;
+        }
+        $fields->add($f);
+        $fields->add($fieldset);
+
+
+        // TEST SETTINGS
+        $field = $modules->get('InputfieldCheckbox');
+        $field->attr('name', '_send_test');
+        $field->label = $this->_('Test settings');
+        $field->checkboxLabel = $this->_('Send a test email.');
+        $field->attr('value', 1);
+        $field->attr('checked', '');
+        $field->icon = 'heartbeat';
+        $fields->add($field);
+
+        // EMAIL TEST SETTINGS
+        $fieldset = $modules->get('InputfieldFieldset');
+        $fieldset->label = $this->_('Email test settings');
+        $fieldset->attr('name', '_testsettings');
+        $fieldset->collapsed = Inputfield::collapsedNo;
+        $fieldset->showIf = '_send_test=1';
+        $fieldset->icon = 'envelope-o';
+
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'debug_senderemail');
+        $field->attr('value', $this->sender_email);
+        $field->label = $this->_('Sender Email Address');
+        $field->columnWidth = 50;
+        $field->icon = 'at';
+        $fieldset->add($field);
+
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'debug_recipientemail');
+        $field->attr('value', '');
+        $field->label = $this->_('Recipient Email Address');
+        $field->columnWidth = 50;
+        $field->icon = 'at';
+        $fieldset->add($field);
+
+        $field = $modules->get('InputfieldText');
+        $field->attr('name', 'debug_subjectline');
+        $field->attr('value', '');
+        $field->label = $this->_('Subjectline');
+        $field->columnWidth = 50;
+        $field->icon = 'pencil';
+        $fieldset->add($field);
+
+        $field = $modules->get('InputfieldTextarea');
+        $field->attr('name', 'debug_bodycontent');
+        $field->attr('value', 'This is a test message. ÄÖÜ äöüß');
+        $field->label = $this->_('Bodycontent');
+        $field->columnWidth = 50;
+        $field->icon = 'envelope-o';
+        $fieldset->add($field);
+
+        $fields->add($fieldset);
+
+        if (wire('session')->send_test) {
+
+
+            // EXECUTE DEBUG CONNECTION AND DISPLAY LOG
+            $field = $modules->get('InputfieldMarkup');
+            $field->attr('name', '_debug_log');
+            $field->label = 'Debug Log';
+            $field->icon = 'commenting-o';
+            $field->columnWidth = 100;
+            $field->collapsed = Inputfield::collapsedNo;
+            $field->attr('value', $this->sendTestMessage());
+            $fields->add($field);
+        } else if (wire('input')->post->_send_test) {
+            // PREPARE SESSION FOR DEBUGGING
+            $session = wire('session');
+            $session->set('send_test', 1);
+            $post = wire('input')->post;
+            $session->set('debug_senderemail', $post->debug_senderemail);
+            $session->set('debug_recipientemail', $post->debug_recipientemail);
+            $session->set('debug_subjectline', $post->debug_subjectline);
+            $session->set('debug_bodycontent', $post->debug_bodycontent);
+        }
+
+        return $fields;
+    }
+
+
+
+    public function sendTestMessage()
+    {
+        $dump = '';
+        try {
+            $session = wire('session');
+            $from    = $session->get('debug_senderemail');
+            $to      = array($session->get('debug_recipientemail'));
+            $subject = $session->get('debug_subjectline');
+            $body    = $session->get('debug_bodycontent');
+            $session->remove('send_test');
+            $session->remove('debug_senderemail');
+            $session->remove('debug_recipientemail');
+            $session->remove('debug_subjectline');
+            $session->remove('debug_bodycontent');
+
+            if ($from && $to) {
+                // do a verbose debugging
+                $now = time();
+                if (!$subject) $subject = 'Test email from WireMailBrevo: ' . $now;
+                if (!$body) $body = 'Debug Testmail, äöüß';
+                $mail = wireMail();
+                $mail->from = $from;
+                $mail->to($to);
+                $mail->subject($subject);
+                $mail->body($body);
+
+                $dump = $mail->send(true);
+            }
+        } catch (Exception $e) {
+            $this->error('Error sending test mail: ' . $e->getMessage());
+        }
+
+        $outputTemplate = "<pre style=\"overflow:scroll !important; margin:15px auto; padding:10px; background-color:#ffeedd; color:#000; border:1px solid #AAA; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px;\">" . $dump . "</pre>";
+        return $outputTemplate;
+    }
+}

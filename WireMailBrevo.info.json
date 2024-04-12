@@ -1,0 +1,12 @@
+{
+  "title": "WireMail for Brevo",
+  "version": "0.0.2",
+  "summary": "Allows Processwire to send transactional email via Brevo",
+  "author": "Timothy de Vos",
+  "href": "https://brevo.com",
+  "autoload": true,
+  "singular": false,
+  "permanent": false,
+  "installs": ["ProcessWireMailBrevo"],
+  "requires": ["PHP>=7.0.0", "ProcessWire>=3.0.0"]
+}

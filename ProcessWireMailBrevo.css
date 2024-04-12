@@ -1,0 +1,77 @@
+.AdminDataTable {
+  font-size: 14px;
+}
+
+td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.label {
+  padding: 0.2rem 0.8rem;
+  border-radius: 2rem;
+  color: #fff;
+  text-transform: capitalize;
+}
+
+.label-blocked {
+  background-color: #f7d3a6;
+}
+
+.label-clicked {
+  background-color: #9cc980;
+}
+
+.label-complaint {
+  background-color: #b87e73;
+}
+
+.label-deferred {
+  background-color: #efa381;
+}
+
+.label-delivered {
+  background-color: #4388ae;
+}
+
+.label-f-opening {
+  background-color: #66b2dc;
+}
+
+.label-h-bounce {
+  background-color: #e6735c;
+}
+
+.label-i-email {
+  background-color: #cd7867;
+}
+
+.label-opened,
+.label-loaded-by-proxy {
+  background-color: #66d2dc;
+}
+
+.label-sent {
+  background-color: #98a0ab;
+}
+
+.label-s-bounce {
+  background-color: #ea8b6f;
+}
+
+.label-unsubscribed {
+  background-color: #f3bb94;
+}
+
+.label-accepted {
+  background-color: #a0c0e4;
+}
+
+.label-rejected {
+  background-color: #e53935;
+}
+
+.label-replied {
+  background-color: #6eb961;
+}
