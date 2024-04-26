@@ -83,83 +83,85 @@ class ProcessWireMailBrevo extends Process
             $out .= "<p>No data available at the moment. <a href='../module/edit?name=WireMailBrevo&collapse_info=1'>Check if the API-key is set.</a></p>";
         } else {
 
-        // Iterate through data
-        foreach ($data->events as $log) {
+            if (isset($data->events) && count($data->events)) {
+                // Iterate through data
+                foreach ($data->events as $log) {
 
-            $empty = false; // table is not empty
+                    $empty = false; // table is not empty
 
-            // Given timestamp
-            $timestamp = $log->date;
+                    // Given timestamp
+                    $timestamp = $log->date;
 
-            // Convert to DateTime object
-            $date = new \DateTime($timestamp);
+                    // Convert to DateTime object
+                    $date = new \DateTime($timestamp);
 
-            // Format the date as per your requirement
-            $readable_time = $date->format('d-m-Y | H:i:s');
+                    // Format the date as per your requirement
+                    $readable_time = $date->format('d-m-Y | H:i:s');
 
-            switch ($log->event) {
-                case 'requests':
-                    $log->event = 'Sent';
-                    break;
+                    switch ($log->event) {
+                        case 'requests':
+                            $log->event = 'Sent';
+                            break;
 
-                case 'loadedByProxy':
-                    $log->event = 'Loaded by proxy';
-                    break;
+                        case 'loadedByProxy':
+                            $log->event = 'Loaded by proxy';
+                            break;
 
-                case 'clicks':
-                    $log->event = 'Clicked';
-                    break;
+                        case 'clicks':
+                            $log->event = 'Clicked';
+                            break;
 
-                default:
-                    # code...
-                    break;
-            }
+                        default:
+                            # code...
+                            break;
+                    }
 
-            $event_label =  "label-" . strtolower(wire()->sanitizer->name($log->event, true, 128, '-'));
-            $table->row(
-                [
-                    "<span class='label $event_label'>$log->event</span>",
-                    '<span style="display:none">' . $log->date . '</span>' . $readable_time,
-                    $log->subject,
-                    $log->from,
-                    $log->email,
-                    isset($log->templateId) ? $log->templateId : '',
+                    $event_label =  "label-" . strtolower(wire()->sanitizer->name($log->event, true, 128, '-'));
+                    $table->row(
+                        [
+                            "<span class='label $event_label'>$log->event</span>",
+                            '<span style="display:none">' . $log->date . '</span>' . $readable_time,
+                            $log->subject,
+                            $log->from,
+                            $log->email,
+                            isset($log->templateId) ? $log->templateId : '',
 
 
 
-                ],
-                array('class' => $class)
-            );
-        }
-        if ($empty) {
-            $out .= "<p>No donors found</p>";
-        } else {
-            $pagination = '';
-            $total_events = count($data->events);
-            $next_page = $total_events == $limit ? true : false;
-            $currentUrl = $this->wire('page')->url;
-
-            if ($total_events > 0) {
-                $pagination .= '<ul class="uk-pagination MarkupPagerNav">';
-                // Previous page
-                $previous_page = $current_page > 1 ? true : false;
-                if ($previous_page) {
-                    $pagination .= '<li aria-label="Previous page" class="MarkupPagerNavPrev MarkupPagerNavFirst"><a href="' . $currentUrl . '?page=' . $previous_page . '"><span><i class="fa fa-angle-left"></i></span></a></li>';
+                        ],
+                        array('class' => $class)
+                    );
                 }
-                // Next page
-                if ($next_page) {
-                    $next_page = $current_page + 1;
-                    $pagination .= '<li aria-label="Next page" class="MarkupPagerNavNext MarkupPagerNavLast"><a href="' . $currentUrl . '?page=' . $next_page . '"><span><i class="fa fa-angle-right"></i></span></a></li>';
+            }
+            if ($empty) {
+                $out .= "<p>Looks like our email log is feeling a bit lonely. Let's give it some company!</p>";
+            } else {
+                $pagination = '';
+                $total_events = count($data->events);
+                $next_page = $total_events == $limit ? true : false;
+                $currentUrl = $this->wire('page')->url;
+
+                if ($total_events > 0) {
+                    $pagination .= '<ul class="uk-pagination MarkupPagerNav">';
+                    // Previous page
+                    $previous_page = $current_page > 1 ? true : false;
+                    if ($previous_page) {
+                        $pagination .= '<li aria-label="Previous page" class="MarkupPagerNavPrev MarkupPagerNavFirst"><a href="' . $currentUrl . '?page=' . $previous_page . '"><span><i class="fa fa-angle-left"></i></span></a></li>';
+                    }
+                    // Next page
+                    if ($next_page) {
+                        $next_page = $current_page + 1;
+                        $pagination .= '<li aria-label="Next page" class="MarkupPagerNavNext MarkupPagerNavLast"><a href="' . $currentUrl . '?page=' . $next_page . '"><span><i class="fa fa-angle-right"></i></span></a></li>';
+                    }
+
+                    $pagination .= '</ul>';
                 }
 
-                $pagination .= '</ul>';
-            }
+                // echo $out;
+                $out .= $table->render();
+                $out .= $pagination;
 
-            // echo $out;
-            $out .= $table->render();
-            $out .= $pagination;
-
-            // $m->attr('value', $pagination . $t->render() . $pagination); // wrap our table with pagination            $out .= $table->render();
+                // $m->attr('value', $pagination . $t->render() . $pagination); // wrap our table with pagination            $out .= $table->render();
             }
         }
         return $out;
