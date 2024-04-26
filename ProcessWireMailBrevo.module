@@ -78,6 +78,10 @@ class ProcessWireMailBrevo extends Process
         $table->headerRow(['Event', 'Date', 'Subject', 'From', 'To', 'Template id']);
         $table->addClass('WireMailBrevoTable'); // ooks ugly imho but stays here to show it could be done
 
+        // check if api is returning events
+        if (!isset($data->events)) {
+            $out .= "<p>No data available at the moment. <a href='../module/edit?name=WireMailBrevo&collapse_info=1'>Check if the API-key is set.</a></p>";
+        } else {
 
         // Iterate through data
         foreach ($data->events as $log) {
@@ -156,6 +160,7 @@ class ProcessWireMailBrevo extends Process
             $out .= $pagination;
 
             // $m->attr('value', $pagination . $t->render() . $pagination); // wrap our table with pagination            $out .= $table->render();
+            }
         }
         return $out;
     }
