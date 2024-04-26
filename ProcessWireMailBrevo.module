@@ -122,9 +122,9 @@ class ProcessWireMailBrevo extends Process
                         [
                             "<span class='label $event_label'>$log->event</span>",
                             '<span style="display:none">' . $log->date . '</span>' . $readable_time,
-                            $log->subject,
-                            $log->from,
-                            $log->email,
+                            wire()->sanitizer->entities($log->subject),
+                            wire()->sanitizer->entities($log->from),
+                            wire()->sanitizer->entities($log->email),
                             isset($log->templateId) ? $log->templateId : '',
 
 
