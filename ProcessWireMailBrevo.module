@@ -30,7 +30,7 @@ class ProcessWireMailBrevo extends Process
 
     /**
      * @var ProcessWire|\ProcessWire\ProcessWire
-     * 
+     *
      */
     protected $wire;
 
@@ -62,6 +62,7 @@ class ProcessWireMailBrevo extends Process
         $limit = 20;
         $offset = 0;
         $current_page = 1;
+        $admin_url = $this->config->urls->admin;
 
         if ($this->wire('input')->page) {
             $current_page = wire()->sanitizer->int($this->wire('input')->page);
@@ -80,7 +81,7 @@ class ProcessWireMailBrevo extends Process
 
         // check if api is returning events
         if (!isset($data->events)) {
-            $out .= "<p>No data available at the moment. <a href='../module/edit?name=WireMailBrevo&collapse_info=1'>Check if the API-key is set.</a></p>";
+            $out .= "<p>No data available at the moment. <a href='{$admin_url}module/edit?name=WireMailBrevo&collapse_info=1'>Check if the API-key is set.</a></p>";
         } else {
 
             if (isset($data->events) && count($data->events)) {
