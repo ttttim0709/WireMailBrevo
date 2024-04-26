@@ -1,6 +1,6 @@
 {
   "title": "WireMail for Brevo",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "summary": "Allows Processwire to send transactional email via Brevo",
   "author": "Timothy de Vos",
   "href": "https://brevo.com",

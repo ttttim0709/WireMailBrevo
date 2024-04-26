@@ -16,7 +16,7 @@ class ProcessWireMailBrevo extends Process
             'author'      => 'Timothy de Vos based on the work of Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Brevo',
             'href'        => 'https://brevo.com',
-            'version'     => '0.0.2',
+            'version'     => '0.0.3',
             'permission' => 'wiremail-brevo',
             'autoload'    => true,
             'singular'    => false,
