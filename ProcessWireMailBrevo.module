@@ -17,6 +17,7 @@ class ProcessWireMailBrevo extends Process
             'summary'     => 'Allows Processwire to send transactional email via Brevo',
             'href'        => 'https://brevo.com',
             'version'     => '0.0.2',
+            'permission' => 'wiremail-brevo',
             'autoload'    => true,
             'singular'    => false,
             'permanent'   => false,
@@ -174,6 +175,16 @@ class ProcessWireMailBrevo extends Process
 
             // tell the user we created this page
             $this->message($this->_('Created Page: ') . $page->path);
+
+            // create version-control permission
+            $permission = $this->permissions->get("wiremail-brevo");
+            if (!$permission->id) {
+                $permission = new Permission();
+                $permission->name = "wiremail-brevo";
+                $permission->title = $this->_("Access wiremail-brevo");
+                $permission->save();
+                $this->message("Created Permission: {$permission->name}");
+            }
         }
     }
 
@@ -186,6 +197,13 @@ class ProcessWireMailBrevo extends Process
             $this->message($this->_('Deleted Page: ') . $page->path);
             // recursively delete the Mollie Admin page
             $page->delete(true);
+
+            // delete version-control permission
+            $permission = $this->permissions->get("wiremail-brevo");
+            if ($permission->id) {
+                $permission->delete();
+                $this->message("Deleted Permission: {$permission->name}");
+            }
         }
     }
 }
