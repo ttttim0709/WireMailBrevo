@@ -75,7 +75,7 @@ class ProcessWireMailBrevo extends Process
         // $table->setSortable(false); // sorting is done on the client side so we disable it to prevent misunderstandings
         $table->setEncodeEntities(false);
         $table->headerRow(['Event', 'Date', 'Subject', 'From', 'To', 'Template id']);
-        $table->addClass('MollieTable'); // looks ugly imho but stays here to show it could be done
+        $table->addClass('WireMailBrevoTable'); // ooks ugly imho but stays here to show it could be done
 
 
         // Iterate through data

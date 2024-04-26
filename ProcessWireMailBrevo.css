@@ -2,76 +2,75 @@
   font-size: 14px;
 }
 
-td {
+.WireMailBrevoTable td {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.label {
+.WireMailBrevoTable .label {
   padding: 0.2rem 0.8rem;
   border-radius: 2rem;
   color: #fff;
   text-transform: capitalize;
 }
 
-.label-blocked {
+.WireMailBrevoTable .label-blocked {
   background-color: #f7d3a6;
 }
 
-.label-clicked {
+.WireMailBrevoTable .label-clicked {
   background-color: #9cc980;
 }
 
-.label-complaint {
+.WireMailBrevoTable .label-complaint {
   background-color: #b87e73;
 }
 
-.label-deferred {
+.WireMailBrevoTable .label-deferred {
   background-color: #efa381;
 }
 
-.label-delivered {
+.WireMailBrevoTable .label-delivered {
   background-color: #4388ae;
 }
 
-.label-f-opening {
+.WireMailBrevoTable .label-f-opening {
   background-color: #66b2dc;
 }
 
-.label-h-bounce {
+.WireMailBrevoTable .label-h-bounce {
   background-color: #e6735c;
 }
 
-.label-i-email {
+.WireMailBrevoTable .label-i-email {
   background-color: #cd7867;
 }
 
-.label-opened,
-.label-loaded-by-proxy {
+.WireMailBrevoTable .label-opened,
+.WireMailBrevoTable .label-loaded-by-proxy {
   background-color: #66d2dc;
 }
 
-.label-sent {
+.WireMailBrevoTable .label-sent {
   background-color: #98a0ab;
 }
 
-.label-s-bounce {
+.WireMailBrevoTable .label-s-bounce {
   background-color: #ea8b6f;
 }
 
-.label-unsubscribed {
+.WireMailBrevoTable .label-unsubscribed {
   background-color: #f3bb94;
 }
 
-.label-accepted {
+.WireMailBrevoTable .label-accepted {
   background-color: #a0c0e4;
 }
 
-.label-rejected {
+.WireMailBrevoTable .label-rejected {
   background-color: #e53935;
 }
 
-.label-replied {
+.WireMailBrevoTable .label-replied {
   background-color: #6eb961;
 }
