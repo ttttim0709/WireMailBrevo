@@ -16,7 +16,7 @@ class ProcessWireMailBrevo extends Process
             'author'      => 'Timothy de Vos based on the work of Netcarver & Pete of Nifty Solutions',
             'summary'     => 'Allows Processwire to send transactional email via Brevo',
             'href'        => 'https://brevo.com',
-            'version'     => '0.0.3',
+            'version'     => '0.0.4',
             'permission' => 'wiremail-brevo',
             'autoload'    => true,
             'singular'    => false,
@@ -137,6 +137,7 @@ class ProcessWireMailBrevo extends Process
             if ($empty) {
                 $out .= "<p>Looks like our email log is feeling a bit lonely. Let's give it some company!</p>";
             } else {
+                // TODO: Pagination is not perfect yet because the total_events is not known at this point. This needs some improvement.
                 $pagination = '';
                 $total_events = count($data->events);
                 $next_page = $total_events == $limit ? true : false;
@@ -157,12 +158,8 @@ class ProcessWireMailBrevo extends Process
 
                     $pagination .= '</ul>';
                 }
-
-                // echo $out;
                 $out .= $table->render();
                 $out .= $pagination;
-
-                // $m->attr('value', $pagination . $t->render() . $pagination); // wrap our table with pagination            $out .= $table->render();
             }
         }
         return $out;

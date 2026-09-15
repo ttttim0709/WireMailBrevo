@@ -556,8 +556,8 @@ class WireMailBrevo extends WireMail implements Module, ConfigurableModule
         $token = $this->api_key;
         self::initClients($token);
 
-        $sender_email = $this->sender_email ?: "processwire@{$this->domain}";
-        $sender_name = $this->sender_name ?: 'ProcessWire';
+        $sender_email = $email['from'] ?: ($this->sender_email ?: "processwire@{$this->domain}");
+        $sender_name = $email['fromName'] ?: ($this->sender_name ?: 'ProcessWire');
         $send_count = 0;
         $versions = false;
 
