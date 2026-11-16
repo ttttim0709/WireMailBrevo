@@ -561,7 +561,7 @@ class WireMailBrevo extends WireMail implements Module, ConfigurableModule
         $send_count = 0;
         $versions = false;
 
-        if (true || $debug) {
+        if ($debug) {
             // Debug mode: Log email details
             $this->vlog($email);
         }
@@ -684,7 +684,7 @@ class WireMailBrevo extends WireMail implements Module, ConfigurableModule
             $this->vlog("Required settings not set.");
         }
 
-        if (true || $debug) {
+        if ($debug) {
             // Return log message in debug mode
             return $logmsg;
         } else {
